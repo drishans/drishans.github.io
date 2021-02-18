@@ -1,0 +1,2 @@
+#  Load in new firefox window
+firefox --new-window https://drish96.github.io/webgl/hw5.html
