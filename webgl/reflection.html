@@ -1,0 +1,167 @@
+<html><head>
+<title>Quantum reflection</title>
+
+<script id="shader-vs" type="x-shader/x-vertex"> 
+  attribute vec3 aPos;
+  attribute vec2 aTexCoord;
+  varying   vec2 vTexCoord;
+void main(void) {
+   gl_Position = vec4(aPos, 1.);
+   vTexCoord = aTexCoord;
+}
+</script> 
+
+<script id="shader-fs" type="x-shader/x-fragment"> 
+precision mediump float;
+  uniform sampler2D uTexSamp;
+  uniform vec2 r0;
+  varying vec2 vTexCoord;
+void main(void) {
+   vec2 t = texture2D(uTexSamp, 2.*vTexCoord - r0).rg;
+   vec2 r2 = vec2( 2.*vTexCoord.x, 2. - 2.*vTexCoord.y ) - r0;
+   t -= texture2D(uTexSamp, r2 ).rg;
+   float c = (t.r*t.r + t.g*t.g);
+   gl_FragColor = vec4(0., 2.*c, 0., 1.);
+}
+</script> 
+ 
+<script type="text/javascript">
+
+function getShader ( gl, id ){
+   var shaderScript = document.getElementById ( id );
+   var str = "";
+   var k = shaderScript.firstChild;
+   while ( k ){
+     if ( k.nodeType == 3 ) str += k.textContent;
+     k = k.nextSibling;
+   }
+   var shader;
+   if ( shaderScript.type == "x-shader/x-fragment" )
+           shader = gl.createShader ( gl.FRAGMENT_SHADER );
+   else if ( shaderScript.type == "x-shader/x-vertex" )
+           shader = gl.createShader(gl.VERTEX_SHADER);
+   else return null;
+   gl.shaderSource(shader, str);
+   gl.compileShader(shader);
+   if (gl.getShaderParameter(shader, gl.COMPILE_STATUS) == 0)
+      alert(gl.getShaderInfoLog(shader));
+   return shader;
+}
+
+var gl,  uR0Loc,  time, ti0,  timer, frames = 0, animation,
+    x0 = 0,  y0 = 0,  k0 = 10,  dt = 10;
+function main() {
+   clearInterval(timer);
+   var c = document.getElementById("c");
+   try { gl = c.getContext("experimental-webgl");
+   } catch(e) {}
+   if ( !gl ) {alert("Your browser does not support WebGL"); return;}
+   var prog  = gl.createProgram();
+   gl.attachShader(prog, getShader( gl, "shader-vs" ));
+   gl.attachShader(prog, getShader( gl, "shader-fs" ));
+   gl.linkProgram(prog);
+   gl.useProgram(prog);
+
+   var aPosLoc = gl.getAttribLocation(prog, "aPos");
+   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(
+      [-1,-1,0, 1,-1,0, 1,1,0, -1,1,0]), gl.STATIC_DRAW);
+   gl.vertexAttribPointer(aPosLoc, 3, gl.FLOAT, false, 0, 0);
+   var aTexLoc = gl.getAttribLocation(prog, "aTexCoord");
+   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(
+      [0,0, 1,0, 1,1, 0,1]), gl.STATIC_DRAW);
+   gl.vertexAttribPointer(aTexLoc, 2, gl.FLOAT, false, 0, 0);
+   gl.enableVertexAttribArray( aPosLoc );
+   gl.enableVertexAttribArray( aTexLoc );
+
+   var pixels = [], tSize = 256, d = .018,  kx = k0,  ky = k0;
+   for(var i = 0; i < tSize; i++)
+     for(var j = 0; j < tSize; j++){
+       var x = (i-tSize/2)*d,  y = (j-tSize/2)*d;
+       var a = 127.9*Math.exp(-(x*x + y*y)), f = kx*x + ky*y;
+       pixels.push( a*Math.cos(f) + 128 );
+       pixels.push( a*Math.sin(f) + 128 );
+       pixels.push( 0 );
+     }
+   var texture = gl.createTexture();
+   gl.bindTexture(gl.TEXTURE_2D, texture);
+   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, tSize, tSize, 0,
+     gl.RGB, gl.UNSIGNED_BYTE, new Uint8Array(pixels));
+   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+   gl.uniform1i(gl.getUniformLocation(prog, "uTexSamp"), 0);
+   gl.clearColor(0., 0., .7, 1.);
+   uR0Loc = gl.getUniformLocation(prog, "r0");
+   time = ti0 = new Date().getTime();
+   timer = setInterval(fr, 500);
+   animation = true;
+   anim();
+}
+function draw(){
+   var ti = new Date().getTime();
+   var dx = (ti - ti0)/(dt*1000);
+   ti0 = ti;
+   x0 += dx;  y0 += dx;
+   if (x0 > 1)  x0 = y0 = 0;
+   gl.uniform2f(uR0Loc, x0, y0);
+   gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+   gl.flush();
+   frames++;
+}
+function anim(){
+   draw();
+   if (animation) requestAnimationFrame(anim);
+   else main();
+}
+function fr(){
+  var ti = new Date().getTime();
+  var fps = Math.round(1000*frames/(ti - time));
+  document.getElementById("framerate").value = fps;
+  frames = 0;  time = ti;
+}
+function setT(v) {
+  dt = v.valueOf();
+}
+function setK(v) {
+  k0 = v.valueOf();
+  animation = false;
+}
+</script>
+<style type="text/css">
+  H1{ font-size: 120%; color: green}
+</style>
+</head>
+<body onload="main()">
+  <canvas id="c" width="512" height="512"></canvas>
+<br>k<sub>o</sub><input size="3" value="10" onchange="setK( this.value )">
+cycle<input size="3" value="10" onchange="setT( this.value )">
+fps<input size="2" id="framerate">
+
+<h1>Quantum reflection (interference)</h1>
+
+Quantum 2D wave packet
+<br>&nbsp; &nbsp; <i>&Psi;(<b>r</b>) = exp(-(<b>r</b> -
+ <b>r</b><sub>o </sub>)<sup>2</sup> + i <b>k r</b>)</i>
+<br>moves along the <i><b>k</b> = (k<sub>o </sub>, k<sub>o </sub>)</i> direction.
+It is reflected by the middle horizontal line <i>y = 0</i>
+(that is <i>&Psi; |<sub>y = 0</sub> = 0 )</i>.
+To get this reflection we add one more (imaginary) packet
+<br>&nbsp; &nbsp; <i>&Psi;'(<b>r</b>) = - exp(-(<b>r</b> +
+ <b>r</b><sub>o </sub>)<sup>2</sup> + i <b>k' r</b>),
+ &nbsp; &nbsp; <b>k</b>' = (k<sub>o </sub>, -k<sub>o </sub>)</i>.
+<br>We save <i>Re(&Psi;), Im(&Psi;)</i> in texture. Then "move" it and add
+"imaginary" packet.  <i>|&Psi;|<sup>2</sup></i> is plotted.
+
+<p>In a similar way (by summation of translated textures)
+one can get interference fringes from complicated sources. But I'm not sure
+if it is very funny or useful.
+
+<hr><a href="../webgl.htm">WebGL</a>
+&nbsp; &nbsp; <i>updated</i> 21 July 2010
+</body>
+</html>
