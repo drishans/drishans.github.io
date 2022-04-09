@@ -1,7 +1,9 @@
-Some WebGL stuff
+Some WebGL shenanigans
 
-hw5.html draws a spider with lighting in WebGL.
-Control the model with your fingers or mouse. 
-Use the scroll wheel or hold shift to zoom in.
+lit spider
 
-toon shader example taken from webglsamples.org
+control spider with your fingers or mouse
+
+scroll wheel or hold shift to zoom in
+
+toon shader example yoinked from webglsamples.org
